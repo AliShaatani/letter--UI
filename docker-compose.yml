@@ -7,6 +7,9 @@ services:
       dockerfile: Dockerfile
     container_name: app-moraslat
     restart: unless-stopped
+    # Expose port for direct access AND Dokploy/Traefik domain routing
+    ports:
+      - "8080:8080"
 
     environment:
       - NODE_ENV=production
