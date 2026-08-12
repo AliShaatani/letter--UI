@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { correspondenceService } from '../services/correspondenceService';
+import { pdfBlobStore } from '../services/pdfBlobStore';
+import { pdfMemoryStore } from '../services/pdfMemoryStore';
 
 export const useCorrespondenceStore = create((set, get) => ({
   // Queue & Selection
@@ -49,11 +51,58 @@ export const useCorrespondenceStore = create((set, get) => ({
 
   // Modals & UI States
   isRoutingModalOpen: false,
+  isCreateModalOpen: false,
+  isAttachModalOpen: false,
+  attachTargetId: null,
   toast: null, // { message: '', type: 'success'|'error'|'info', id: number }
 
   // ----------------------------------------------------
   // Actions
   // ----------------------------------------------------
+  openCreateModal: () => set({ isCreateModalOpen: true }),
+  closeCreateModal: () => set({ isCreateModalOpen: false }),
+  openAttachModal: (id) => set({ isAttachModalOpen: true, attachTargetId: id }),
+  closeAttachModal: () => set({ isAttachModalOpen: false, attachTargetId: null }),
+
+  // Attach PDF File object directly to an existing correspondence item
+  attachPdfToCorrespondence: async (id, file) => {
+    if (!id || !file) return;
+
+    try {
+      // 1. Read file as ArrayBuffer for instant memory rendering
+      const arrayBuffer = await file.arrayBuffer();
+      pdfMemoryStore.setFile(id, arrayBuffer);
+      await pdfBlobStore.savePdf(id, arrayBuffer);
+    } catch (err) {
+      console.error('Error storing PDF file:', err);
+    }
+
+    // 2. Create local session Blob URL
+    const blobUrl = URL.createObjectURL(file);
+
+    set((state) => {
+      const updatedQueue = state.pendingQueue.map((item) => {
+        if (item.id === id) {
+          return {
+            ...item,
+            hasFile: true,
+            pdfBlobUrl: blobUrl,
+            pdfFileName: file.name
+          };
+        }
+        return item;
+      });
+      correspondenceService.saveQueueOrder(updatedQueue);
+
+      return {
+        pendingQueue: updatedQueue,
+        currentId: id,
+        activePage: 1
+      };
+    });
+
+    get().showToast(`تم إرفاق ملف الـ PDF بالمراسلة بنجاح 📄✨`, 'success');
+  },
 
   // Fetch pending queue
   loadQueue: async () => {
@@ -110,6 +159,20 @@ export const useCorrespondenceStore = create((set, get) => ({
   reorderQueue: async (newQueue) => {
     set({ pendingQueue: newQueue });
     await correspondenceService.saveQueueOrder(newQueue);
+  },
+
+  // Add new uploaded correspondence to queue
+  addCorrespondenceToQueue: async (item) => {
+    set((state) => {
+      const updatedQueue = [item, ...state.pendingQueue];
+      correspondenceService.saveQueueOrder(updatedQueue);
+      return {
+        pendingQueue: updatedQueue,
+        currentId: item.id,
+        activePage: 1
+      };
+    });
+    get().showToast(`تم رفع وإرسال المراسلة [${item.refNumber}] إلى طابور التهميش الرئيسي بنجاح 📄✨`, 'success');
   },
 
   // Filter setters
@@ -348,7 +411,7 @@ export const useCorrespondenceStore = create((set, get) => ({
     await correspondenceService.resetToMockData();
     await get().loadQueue();
     await get().loadArchive();
-    get().showToast('تمت إعادة ضبط البيانات الافتراضية للنظام بنجاح', 'success');
+    get().showToast('تمت إعادة ضبط البيانات بنجاح', 'success');
   },
 
   showToast: (message, type = 'success') => {

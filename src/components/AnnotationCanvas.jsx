@@ -1,6 +1,37 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Stage, Layer, Line, Rect, Circle, Arrow, Text } from 'react-konva';
+import { Stage, Layer, Line, Rect, Circle, Arrow, Text, Image as KonvaImage } from 'react-konva';
 import { useCorrespondenceStore } from '../store/useCorrespondenceStore';
+
+const KonvaImageShape = ({ shape, onClick, onDragEnd, readOnly }) => {
+  const [image, setImage] = useState(null);
+
+  useEffect(() => {
+    if (!shape.src) return;
+    const img = new window.Image();
+    img.src = shape.src;
+    img.onload = () => setImage(img);
+  }, [shape.src]);
+
+  if (!image) return null;
+
+  return (
+    <KonvaImage
+      x={shape.x}
+      y={shape.y}
+      width={shape.width || 180}
+      height={shape.height || 75}
+      image={image}
+      onClick={onClick}
+      tap={onClick}
+      draggable={!readOnly}
+      onDragEnd={(e) => {
+        if (onDragEnd) {
+          onDragEnd(shape.id, e.target.x(), e.target.y());
+        }
+      }}
+    />
+  );
+};
 
 export const AnnotationCanvas = ({
   docId,
@@ -31,6 +62,11 @@ export const AnnotationCanvas = ({
   // Handle Mouse Down / Touch Start
   const handleMouseDown = (e) => {
     if (readOnly) return;
+
+    // Ignore drawing if clicking directly on an existing shape
+    const clickedOnEmpty = e.target === e.target.getStage();
+    if (!clickedOnEmpty && annotationTool !== 'pen' && annotationTool !== 'highlighter') return;
+
     const stage = e.target.getStage();
     const point = stage.getPointerPosition();
     if (!point) return;
@@ -123,6 +159,12 @@ export const AnnotationCanvas = ({
   const handleShapeClick = (shapeId) => {
     if (readOnly || annotationTool !== 'eraser') return;
     const newShapes = pageShapes.filter((s) => s.id !== shapeId);
+    updatePageAnnotations(docId, pageNum, newShapes);
+  };
+
+  // Handle position update when dragging stamp/signature
+  const handleDragEnd = (shapeId, newX, newY) => {
+    const newShapes = pageShapes.map((s) => (s.id === shapeId ? { ...s, x: newX, y: newY } : s));
     updatePageAnnotations(docId, pageNum, newShapes);
   };
 
@@ -239,6 +281,16 @@ export const AnnotationCanvas = ({
                   fontStyle="bold"
                   onClick={() => handleShapeClick(shape.id)}
                   tap={() => handleShapeClick(shape.id)}
+                />
+              );
+            } else if (shape.type === 'signature' || shape.type === 'stamp') {
+              return (
+                <KonvaImageShape
+                  key={shape.id}
+                  shape={shape}
+                  onClick={() => handleShapeClick(shape.id)}
+                  onDragEnd={handleDragEnd}
+                  readOnly={readOnly}
                 />
               );
             }

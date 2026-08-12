@@ -1,6 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { useCorrespondenceStore } from '../store/useCorrespondenceStore';
+import { pdfBlobStore } from '../services/pdfBlobStore';
+import { pdfMemoryStore } from '../services/pdfMemoryStore';
 import { AnnotationCanvas } from './AnnotationCanvas';
+import { SignatureModal } from './SignatureModal';
 import {
   PenTool,
   Highlighter,
@@ -19,11 +24,15 @@ import {
   ChevronLeft,
   Send,
   Sparkles,
-  Building,
-  CheckCircle2,
   Lock,
-  MousePointer
+  FileText,
+  UploadCloud,
+  FileSignature,
+  FilePlus
 } from 'lucide-react';
+
+// Configure PDF.js Worker using Vite's static asset URL importer
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 export const DocumentRenderer = ({ item, readOnly = false }) => {
   const {
@@ -34,30 +43,242 @@ export const DocumentRenderer = ({ item, readOnly = false }) => {
     annotationTool,
     setAnnotationTool,
     strokeColor,
-    strokeColorSet,
     setStrokeColor,
     strokeWidth,
     setStrokeWidth,
     undoAnnotation,
     redoAnnotation,
     clearPageAnnotations,
+    updatePageAnnotations,
+    annotationsMap,
     openRoutingModal,
-    isDocumentLoading,
+    openAttachModal,
     docAnimationClass
   } = useCorrespondenceStore();
 
   const [shapeMenuOpen, setShapeMenuOpen] = useState(false);
+  const [isSigModalOpen, setIsSigModalOpen] = useState(false);
+  const [pdfDoc, setPdfDoc] = useState(null);
+  const [numPages, setNumPages] = useState(item?.pageCount || 1);
+  const [isPdfLoading, setIsPdfLoading] = useState(true);
+  const [pdfError, setPdfError] = useState(null);
+  const [docDimensions, setDocDimensions] = useState({ width: 800, height: 1130 });
+
+  const canvasRef = useRef(null);
+  const renderTaskRef = useRef(null);
+
+  // 1. Load PDF Document safely from Memory, IndexedDB, BlobURL, or File
+  useEffect(() => {
+    let isCancelled = false;
+    setIsPdfLoading(true);
+    setPdfError(null);
+
+    const loadPdf = async () => {
+      try {
+        let resolvedSource = null;
+
+        // 1. Check synchronous memory store
+        if (item?.id) {
+          resolvedSource = pdfMemoryStore.getFile(item.id);
+        }
+
+        // 2. Check IndexedDB store
+        if (!resolvedSource && item?.id) {
+          resolvedSource = await pdfBlobStore.getPdf(item.id);
+        }
+
+        // 3. Fallback to item properties
+        if (!resolvedSource) {
+          resolvedSource = item?.pdfBlobUrl || item?.pdfUrl || item?.pdfDataUrl;
+        }
+
+        // If item has no file attached
+        if (!resolvedSource) {
+          setPdfDoc(null);
+          setIsPdfLoading(false);
+          return;
+        }
+
+        let loadingTask;
+        if (resolvedSource instanceof ArrayBuffer) {
+          loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(resolvedSource) });
+        } else if (resolvedSource instanceof Blob || resolvedSource instanceof File) {
+          const arrayBuffer = await resolvedSource.arrayBuffer();
+          loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
+        } else if (typeof resolvedSource === 'string' && resolvedSource.startsWith('data:')) {
+          const base64Parts = resolvedSource.split(',');
+          const base64Str = base64Parts.length > 1 ? base64Parts[1] : base64Parts[0];
+          const binaryStr = window.atob(base64Str);
+          const len = binaryStr.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            bytes[i] = binaryStr.charCodeAt(i);
+          }
+          loadingTask = pdfjsLib.getDocument({ data: bytes });
+        } else if (typeof resolvedSource === 'string' && resolvedSource.startsWith('blob:')) {
+          const res = await fetch(resolvedSource);
+          const arrayBuffer = await res.arrayBuffer();
+          loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
+        } else if (typeof resolvedSource === 'string' && resolvedSource.trim().length > 0) {
+          loadingTask = pdfjsLib.getDocument(resolvedSource);
+        } else {
+          setPdfDoc(null);
+          setIsPdfLoading(false);
+          return;
+        }
+
+        const doc = await loadingTask.promise;
+        if (isCancelled) return;
+
+        setPdfDoc(doc);
+        setNumPages(doc.numPages);
+        item.pageCount = doc.numPages; // sync page count
+        item.hasFile = true;
+        setIsPdfLoading(false);
+      } catch (err) {
+        console.error('Error loading PDF document:', err);
+        if (!isCancelled) {
+          setPdfError('تعذر تحميل ملف الـ PDF الأصلي');
+          setIsPdfLoading(false);
+        }
+      }
+    };
+
+    loadPdf();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [item?.id, item?.pdfBlobUrl, item?.pdfUrl, item?.pdfDataUrl, item?.hasFile]);
+
+  // 2. Render Page onto Canvas whenever activePage, pdfDoc changes
+  useEffect(() => {
+    if (!pdfDoc || !canvasRef.current) return;
+
+    let isSubscribed = true;
+
+    const renderPage = async () => {
+      try {
+        const pageNumber = Math.min(Math.max(1, activePage), pdfDoc.numPages);
+        const page = await pdfDoc.getPage(pageNumber);
+
+        if (!isSubscribed) return;
+
+        // Cancel previous render task if active
+        if (renderTaskRef.current) {
+          renderTaskRef.current.cancel();
+        }
+
+        // Calculate aspect ratio & set canonical document size (e.g. width = 800)
+        const unscaledViewport = page.getViewport({ scale: 1.0 });
+        const canonicalWidth = 800;
+        const canonicalHeight = Math.round(canonicalWidth * (unscaledViewport.height / unscaledViewport.width));
+
+        setDocDimensions({ width: canonicalWidth, height: canonicalHeight });
+
+        // High resolution rendering for crisp text (2x pixel density)
+        const renderScale = 2.0;
+        const viewport = page.getViewport({ scale: (canonicalWidth / unscaledViewport.width) * renderScale });
+
+        const canvas = canvasRef.current;
+        const context = canvas.getContext('2d');
+
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+
+        const renderContext = {
+          canvasContext: context,
+          viewport: viewport
+        };
+
+        const task = page.render(renderContext);
+        renderTaskRef.current = task;
+        await task.promise;
+      } catch (err) {
+        if (err?.name !== 'RenderingCancelledException') {
+          console.error('Error rendering PDF page:', err);
+        }
+      }
+    };
+
+    renderPage();
+
+    return () => {
+      isSubscribed = false;
+      if (renderTaskRef.current) {
+        renderTaskRef.current.cancel();
+      }
+    };
+  }, [pdfDoc, activePage]);
+
+  // Handle signature or stamp insertion into current page canvas
+  const handleInsertSignatureOrStamp = (itemToInsert) => {
+    if (!item?.id) return;
+    const currentShapes = annotationsMap[item.id]?.[activePage] || [];
+    const newShape = {
+      id: `sig_${Date.now()}`,
+      type: itemToInsert.type, // 'signature' | 'stamp'
+      src: itemToInsert.src,
+      x: docDimensions.width / 2 - (itemToInsert.width || 180) / 2,
+      y: docDimensions.height - 180,
+      width: itemToInsert.width || 180,
+      height: itemToInsert.height || 75
+    };
+    updatePageAnnotations(item.id, activePage, [...currentShapes, newShape]);
+  };
 
   if (!item) return null;
 
-  const pageCount = item.pageCount || 1;
-  const currentPageData = item.documentContent?.pages?.find(
-    (p) => p.pageNumber === activePage
-  ) || item.documentContent?.pages?.[0];
+  // Calm placeholder when correspondence has no PDF attached
+  if (!pdfDoc && !isPdfLoading) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-50/80 min-h-[calc(100vh-65px)] relative">
+        {/* Top Quick Bar */}
+        <div className="absolute top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur-md border-b border-[#E2E6EC] px-6 py-3 flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2 text-xs">
+            <span className="font-bold text-[#1B4B8A] bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100 font-mono">
+              {item.refNumber}
+            </span>
+            <h2 className="font-bold font-cairo text-[#1A1F2B] truncate max-w-md">
+              {item.subject}
+            </h2>
+          </div>
+          <span className="text-xs font-semibold text-amber-800 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
+            بلا ملف مرفق
+          </span>
+        </div>
+
+        {/* Calm Upload Prompt Card */}
+        <div className="max-w-md w-full bg-white p-8 sm:p-10 rounded-3xl border border-[#E2E6EC] shadow-lg animate-fade-in relative text-center">
+          <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto mb-4 text-[#C8952A] shadow-xs">
+            <UploadCloud className="w-8 h-8" />
+          </div>
+
+          <h3 className="text-lg font-bold font-cairo text-[#1B4B8A] mb-2">
+            لم يُرفق ملف PDF لهذه المراسلة بعد
+          </h3>
+
+          <p className="text-xs text-gray-500 leading-relaxed mb-6">
+            بيانات المعاملة الإدارية مسجلة في النظام. يمكنك إرفاق مستند الـ PDF الأصلي الآن للبدء في تهميشه والتوقيع عليه.
+          </p>
+
+          {!readOnly && (
+            <button
+              onClick={() => openAttachModal(item.id)}
+              className="w-full flex items-center justify-center gap-2 py-3 px-5 text-xs font-bold font-cairo text-white bg-gradient-to-r from-[#1B4B8A] to-[#123a6b] hover:from-[#123a6b] hover:to-[#0f2e55] rounded-xl shadow-md transition-all border border-[#C8952A]/40"
+            >
+              <UploadCloud className="w-4 h-4 text-[#E0B863]" />
+              <span>رفع ملف PDF لهذه المراسلة</span>
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const scale = zoomLevel / 100;
-  const docWidth = 820;
-  const docHeight = 1120;
+  const docWidth = docDimensions.width;
+  const docHeight = docDimensions.height;
 
   const colors = [
     { label: 'أزرق حكومي', value: '#1B4B8A', bg: 'bg-[#1B4B8A]' },
@@ -108,10 +329,10 @@ export const DocumentRenderer = ({ item, readOnly = false }) => {
           </button>
           <span className="text-xs font-bold text-[#1A1F2B] px-2 font-cairo">
             صفحة <span className="text-[#1B4B8A]">{activePage}</span> من{' '}
-            <span className="text-gray-500">{pageCount}</span>
+            <span className="text-gray-500">{numPages}</span>
           </span>
           <button
-            disabled={activePage >= pageCount}
+            disabled={activePage >= numPages}
             onClick={() => setActivePage(activePage + 1)}
             className="p-1.5 text-gray-600 hover:text-[#1B4B8A] disabled:opacity-30 disabled:hover:text-gray-600 rounded-lg hover:bg-white transition-all"
             title="الصفحة التالية"
@@ -153,20 +374,12 @@ export const DocumentRenderer = ({ item, readOnly = false }) => {
       {/* Main PDF Page Display Area with Konva Layer */}
       {/* ---------------------------------------------------- */}
       <div className="flex-1 overflow-auto p-4 sm:p-8 flex justify-center items-start relative">
-        {isDocumentLoading ? (
-          <div className="w-[820px] h-[1050px] bg-white rounded-xl shadow-xl p-8 animate-pulse flex flex-col justify-between border border-gray-200">
-            <div className="space-y-4">
-              <div className="h-10 bg-slate-100 rounded-lg w-full"></div>
-              <div className="h-6 bg-slate-100 rounded-lg w-3/4"></div>
-              <div className="h-4 bg-slate-100 rounded-lg w-1/2"></div>
-            </div>
-            <div className="space-y-3">
-              <div className="h-4 bg-slate-100 rounded-lg w-full"></div>
-              <div className="h-4 bg-slate-100 rounded-lg w-full"></div>
-              <div className="h-4 bg-slate-100 rounded-lg w-5/6"></div>
-              <div className="h-4 bg-slate-100 rounded-lg w-2/3"></div>
-            </div>
-            <div className="h-16 bg-slate-100 rounded-lg w-full"></div>
+        {isPdfLoading ? (
+          <div className="w-[800px] h-[1050px] bg-white rounded-xl shadow-xl p-8 animate-pulse flex flex-col justify-center items-center border border-gray-200">
+            <FileText className="w-16 h-16 text-[#1B4B8A] animate-bounce mb-4" />
+            <p className="text-sm font-bold font-cairo text-[#1B4B8A]">
+              جاري معالجة وعرض صفحات مستند الـ PDF الأصلي...
+            </p>
           </div>
         ) : (
           <div
@@ -176,131 +389,15 @@ export const DocumentRenderer = ({ item, readOnly = false }) => {
               height: docHeight * scale
             }}
           >
-            {/* Render Crisp Arabic Document Sheet Content */}
-            <div
-              className="absolute inset-0 p-10 sm:p-12 flex flex-col justify-between select-none pointer-events-none overflow-hidden bg-white"
+            {/* Real PDF Rendered Canvas */}
+            <canvas
+              ref={canvasRef}
+              className="absolute inset-0 select-none pointer-events-none rounded-lg"
               style={{
-                transform: `scale(${scale})`,
-                transformOrigin: 'top right',
-                width: docWidth,
-                height: docHeight
+                width: docWidth * scale,
+                height: docHeight * scale
               }}
-            >
-              {/* Official Header */}
-              <div>
-                <div className="flex items-center justify-between border-b-2 border-[#1B4B8A] pb-4 mb-6">
-                  <div>
-                    <h3 className="font-bold text-base font-cairo text-[#1B4B8A]">
-                      {item.documentContent?.headerTitle || 'جمهورية مصر العربية'}
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {item.documentContent?.docTypeLabel || 'مراسلة رسمية توجيهية'}
-                    </p>
-                  </div>
-
-                  <div className="text-center">
-                    <div className="w-12 h-12 rounded-full border-2 border-[#C8952A] flex items-center justify-center mx-auto mb-1 bg-amber-50/50">
-                      <Building className="w-6 h-6 text-[#C8952A]" />
-                    </div>
-                    <span className="text-[10px] font-bold text-gray-400">ختم المعتمد</span>
-                  </div>
-
-                  <div className="text-left font-mono text-xs text-gray-600 space-y-1">
-                    <div>
-                      <span className="text-gray-400">الرقم:</span>{' '}
-                      <span className="font-bold text-[#1B4B8A]">{item.refNumber}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-400">التاريخ:</span>{' '}
-                      <span>{item.dateGregorian}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-400">الموافق:</span>{' '}
-                      <span>{item.dateHijri}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Page Title */}
-                {currentPageData?.contentTitle && (
-                  <h4 className="text-lg font-bold font-cairo text-center text-[#1B4B8A] mb-6 bg-slate-50 py-2 px-4 rounded-xl border border-slate-200">
-                    {currentPageData.contentTitle}
-                  </h4>
-                )}
-
-                {/* Main Paragraphs */}
-                <div className="space-y-4 text-sm text-[#1A1F2B] leading-relaxed font-ibm">
-                  {currentPageData?.bodyParagraphs?.map((para, idx) => (
-                    <p key={idx} className="indent-4 text-justify">
-                      {para}
-                    </p>
-                  ))}
-                </div>
-
-                {/* Render Table Data if present on this page */}
-                {currentPageData?.tableData && (
-                  <div className="my-6 border border-gray-300 rounded-xl overflow-hidden shadow-xs">
-                    <table className="w-full text-xs text-right">
-                      <thead className="bg-[#1B4B8A] text-white font-cairo">
-                        <tr>
-                          {currentPageData.tableData.headers.map((h, i) => (
-                            <th key={i} className="p-2.5 border-b font-bold">
-                              {h}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200 font-ibm">
-                        {currentPageData.tableData.rows.map((row, rIdx) => (
-                          <tr key={rIdx} className="hover:bg-gray-50">
-                            {row.map((cell, cIdx) => (
-                              <td key={cIdx} className="p-2.5 font-medium">
-                                {cell}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                        {currentPageData.tableData.total && (
-                          <tr className="bg-amber-50 font-bold border-t-2 border-[#C8952A]">
-                            <td colSpan={2} className="p-2.5 text-left">
-                              الإجمالي الكلي:
-                            </td>
-                            <td colSpan={2} className="p-2.5 text-[#1B4B8A]">
-                              {currentPageData.tableData.total}
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-
-              {/* Document Signature Footer Block */}
-              <div className="pt-6 border-t border-gray-200 flex items-center justify-between text-xs">
-                <div>
-                  <span className="text-gray-400">المرسل:</span>{' '}
-                  <span className="font-bold text-[#1A1F2B]">{item.sender}</span>
-                  <div className="text-gray-500 font-medium">
-                    {item.senderRepresentative}
-                  </div>
-                </div>
-
-                {currentPageData?.signatureBlock && (
-                  <div className="text-center bg-slate-50 p-3 rounded-xl border border-slate-200 min-w-[200px]">
-                    <div className="font-bold text-[#1B4B8A]">
-                      {currentPageData.signatureBlock.title}
-                    </div>
-                    <div className="text-gray-600 font-medium text-xs mt-1">
-                      {currentPageData.signatureBlock.name}
-                    </div>
-                    <div className="text-[10px] text-gray-400 mt-1">
-                      توقيع معتمد إلكترونياً
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            />
 
             {/* Konva Interactive Annotation Layer */}
             <div className="absolute inset-0 z-10">
@@ -358,6 +455,15 @@ export const DocumentRenderer = ({ item, readOnly = false }) => {
               title="إضافة نص (Text)"
             >
               <Type className="w-5 h-5" />
+            </button>
+
+            {/* Signature & Official Stamp Tool */}
+            <button
+              onClick={() => setIsSigModalOpen(true)}
+              className="p-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-[#C8952A] hover:text-amber-900 border border-amber-200 transition-all flex items-center justify-center shadow-xs"
+              title="إدراج توقيع يدوي أو ختم رسمي معتمد"
+            >
+              <FileSignature className="w-5 h-5" />
             </button>
 
             {/* Shapes Dropdown / Toggle */}
@@ -495,6 +601,13 @@ export const DocumentRenderer = ({ item, readOnly = false }) => {
         </div>
       )}
 
+      {/* Signature & Stamp Modal */}
+      <SignatureModal
+        isOpen={isSigModalOpen}
+        onClose={() => setIsSigModalOpen(false)}
+        onInsert={handleInsertSignatureOrStamp}
+      />
+
       {/* ---------------------------------------------------- */}
       {/* Prominent Fixed Bottom-Right Action Button */}
       {/* ---------------------------------------------------- */}
@@ -502,7 +615,7 @@ export const DocumentRenderer = ({ item, readOnly = false }) => {
         <div className="fixed bottom-6 right-6 z-40">
           <button
             onClick={openRoutingModal}
-            className="flex items-center gap-3 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[#1B4B8A] to-[#123a6b] text-white font-cairo font-bold text-base shadow-2xl hover:shadow-[#1B4B8A]/40 hover:scale-105 active:scale-95 transition-all border border-[#C8952A]/40 pulse-glow"
+            className="flex items-center gap-3 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[#1B4B8A] to-[#123a6b] text-[#ffffff] font-cairo font-bold text-base shadow-2xl hover:shadow-[#1B4B8A]/40 hover:scale-105 active:scale-95 transition-all border border-[#C8952A]/40 pulse-glow"
           >
             <div className="w-7 h-7 rounded-lg bg-[#C8952A] flex items-center justify-center text-white shadow-xs">
               <Send className="w-4 h-4" />

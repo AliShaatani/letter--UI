@@ -5,8 +5,11 @@ import { SidebarQueue } from './components/SidebarQueue';
 import { DocumentRenderer } from './components/DocumentRenderer';
 import { RoutingModal } from './components/RoutingModal';
 import { ArchiveView } from './components/ArchiveView';
+import { UploadPortal } from './components/UploadPortal';
 import { EmptyState } from './components/EmptyState';
 import { Toast } from './components/Toast';
+import { CreateCorrespondenceModal } from './components/CreateCorrespondenceModal';
+import { AttachPdfModal } from './components/AttachPdfModal';
 
 export function App() {
   const {
@@ -34,7 +37,9 @@ export function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col">
-        {activeView === 'archive' ? (
+        {activeView === 'upload' ? (
+          <UploadPortal />
+        ) : activeView === 'archive' ? (
           <ArchiveView />
         ) : pendingQueue.length === 0 && !isLoading ? (
           <EmptyState />
@@ -51,6 +56,12 @@ export function App() {
 
       {/* Routing & Signature Modal */}
       <RoutingModal />
+
+      {/* Create New Correspondence Modal */}
+      <CreateCorrespondenceModal />
+
+      {/* Attach PDF File Modal for text-only items */}
+      <AttachPdfModal />
     </div>
   );
 }

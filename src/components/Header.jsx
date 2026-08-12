@@ -14,7 +14,8 @@ import {
   Sparkles,
   Building2,
   Calendar,
-  AlertTriangle
+  AlertTriangle,
+  UploadCloud
 } from 'lucide-react';
 
 export const Header = () => {
@@ -27,7 +28,7 @@ export const Header = () => {
     toggleFilterPanel,
     activeView,
     setActiveView,
-    resetToMockData,
+    openCreateModal,
     showToast
   } = useCorrespondenceStore();
 
@@ -108,8 +109,15 @@ export const Header = () => {
               {isFilterPanelOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
             </button>
 
-            {/* View Switcher: Main Queue vs Archive */}
+            {/* View Switcher: Upload Portal vs Main Queue vs Archive */}
             <div className="flex items-center bg-[#F7F8FA] p-1 rounded-xl border border-[#E2E6EC]">
+              <button
+                onClick={openCreateModal}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all bg-gradient-to-r from-[#1B4B8A] to-[#123a6b] text-white shadow-sm hover:shadow-md border border-[#C8952A]/40"
+              >
+                <UploadCloud className="w-4 h-4 text-[#E0B863]" />
+                <span>رفع مراسلة جديدة</span>
+              </button>
               <button
                 onClick={() => setActiveView('main')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
@@ -119,7 +127,7 @@ export const Header = () => {
                 }`}
               >
                 <Layers className="w-3.5 h-3.5" />
-                <span>المعاملات الجارية</span>
+                <span>المعاملات الجارية ({pendingQueue.length})</span>
               </button>
               <button
                 onClick={() => setActiveView('archive')}
@@ -133,15 +141,6 @@ export const Header = () => {
                 <span>الأرشيف</span>
               </button>
             </div>
-
-            {/* System Mock Data Reset */}
-            <button
-              onClick={resetToMockData}
-              title="إعادة ضبط البيانات الافتراضية"
-              className="p-2 text-gray-500 hover:text-[#1B4B8A] hover:bg-gray-100 rounded-xl transition-colors border border-transparent hover:border-gray-200"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </button>
           </div>
         </div>
 
