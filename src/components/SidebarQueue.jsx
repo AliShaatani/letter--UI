@@ -8,6 +8,7 @@ import {
   FileCheck,
   Archive,
   ChevronLeft,
+  ChevronRight,
   Info,
   Sparkles,
   ArrowUpRight
@@ -20,7 +21,9 @@ export const SidebarQueue = () => {
     dismissingId,
     selectCorrespondence,
     reorderQueue,
-    setActiveView
+    setActiveView,
+    isSidebarCollapsed,
+    toggleSidebar
   } = useCorrespondenceStore();
 
   const [draggedIndex, setDraggedIndex] = useState(null);
@@ -103,51 +106,148 @@ export const SidebarQueue = () => {
   };
 
   return (
-    <aside className="w-full lg:w-96 bg-white border-l border-[#E2E6EC] flex flex-col h-[calc(100vh-65px)] sticky top-[65px] bg-islamic-pattern shadow-sm shrink-0">
+    <aside className={`bg-white border-l border-[#E2E6EC] flex flex-col sticky top-[65px] bg-islamic-pattern shadow-sm shrink-0 transition-all duration-300 ease-in-out ${
+      isSidebarCollapsed 
+        ? 'w-full h-16 lg:h-[calc(100vh-65px)] lg:w-20' 
+        : 'w-full h-[calc(100vh-65px)] lg:w-96'
+    }`}>
       {/* Sidebar Header */}
-      <div className="p-4 border-b border-[#E2E6EC] bg-white/90 backdrop-blur-xs flex items-center justify-between">
-        <div>
-          <h2 className="text-base font-bold font-cairo text-[#1B4B8A] flex items-center gap-2">
-            <span>طابور المراسلات</span>
-            <span className="bg-[#1B4B8A] text-white text-xs font-bold px-2 py-0.5 rounded-full">
-              {pendingQueue.length}
-            </span>
-          </h2>
-          <p className="text-[11px] text-[#6B7280]">
-            اسحب لتعديل أولوية المعالجة أو انقر للفتح
-          </p>
-        </div>
-
-        <div className="group relative">
-          <button className="p-1.5 text-gray-400 hover:text-[#1B4B8A] hover:bg-gray-100 rounded-lg transition-colors">
-            <Info className="w-4 h-4" />
+      {isSidebarCollapsed ? (
+        <div className="p-3 border-b border-[#E2E6EC] bg-white/90 backdrop-blur-xs flex flex-row lg:flex-col items-center justify-between lg:justify-start gap-3 h-full lg:h-auto">
+          <button
+            onClick={toggleSidebar}
+            className="p-2 text-gray-400 hover:text-[#1B4B8A] hover:bg-gray-100 rounded-xl transition-colors"
+            title="توسيع القائمة"
+          >
+            <ChevronRight className="w-5 h-5" />
           </button>
-          <div className="absolute left-0 top-full mt-1 hidden group-hover:block w-48 bg-slate-900 text-white text-[11px] p-2.5 rounded-lg shadow-xl z-50 leading-relaxed border border-slate-700">
-            💡 يمكنك سحب البطاقات لأعلى أو لأسفل لإعادة ترتيب الأولوية في الطابور.
+          <div className="bg-[#1B4B8A] text-white text-xs font-bold w-8 h-8 rounded-full flex items-center justify-center shadow-sm" title={`عدد المراسلات: ${pendingQueue.length}`}>
+            {pendingQueue.length}
           </div>
         </div>
-      </div>
-
-      {/* Queue List */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
-        {pendingQueue.length === 0 ? (
-          <div className="text-center py-12 px-4 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
-            <div className="w-12 h-12 rounded-full bg-emerald-100 text-[#1E9E5A] flex items-center justify-center mx-auto mb-3">
-              <Sparkles className="w-6 h-6" />
-            </div>
-            <h3 className="font-bold text-sm font-cairo text-[#1A1F2B]">
-              لا توجد مراسلات معلّقة حالياً
-            </h3>
-            <p className="text-xs text-gray-500 mt-1">
-              تم إنجاز كافة المعاملات وإحالتها بنجاح!
+      ) : (
+        <div className="p-4 border-b border-[#E2E6EC] bg-white/90 backdrop-blur-xs flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold font-cairo text-[#1B4B8A] flex items-center gap-2">
+              <span>طابور المراسلات</span>
+              <span className="bg-[#1B4B8A] text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                {pendingQueue.length}
+              </span>
+            </h2>
+            <p className="text-[11px] text-[#6B7280]">
+              اسحب لتعديل أولوية المعالجة أو انقر للفتح
             </p>
           </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={toggleSidebar}
+              className="p-1.5 text-gray-400 hover:text-[#1B4B8A] hover:bg-gray-100 rounded-lg transition-colors"
+              title="تصغير القائمة"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <div className="group relative">
+              <button className="p-1.5 text-gray-400 hover:text-[#1B4B8A] hover:bg-gray-100 rounded-lg transition-colors">
+                <Info className="w-4 h-4" />
+              </button>
+              <div className="absolute left-0 top-full mt-1 hidden group-hover:block w-48 bg-slate-900 text-white text-[11px] p-2.5 rounded-lg shadow-xl z-50 leading-relaxed border border-slate-700">
+                💡 يمكنك سحب البطاقات لأعلى أو لأسفل لإعادة ترتيب الأولوية في الطابور.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Queue List */}
+      <div className={`flex-1 overflow-y-auto p-3 ${
+        isSidebarCollapsed 
+          ? 'hidden lg:flex lg:flex-col lg:items-center lg:space-y-4' 
+          : 'space-y-2.5'
+      }`}>
+        {pendingQueue.length === 0 ? (
+          isSidebarCollapsed ? (
+            <div className="text-center py-6 text-gray-400" title="لا توجد مراسلات">
+              <Sparkles className="w-6 h-6 mx-auto text-gray-300" />
+            </div>
+          ) : (
+            <div className="text-center py-12 px-4 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+              <div className="w-12 h-12 rounded-full bg-emerald-100 text-[#1E9E5A] flex items-center justify-center mx-auto mb-3">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <h3 className="font-bold text-sm font-cairo text-[#1A1F2B]">
+                لا توجد مراسلات معلّقة حالياً
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                تم إنجاز كافة المعاملات وإحالتها بنجاح!
+              </p>
+            </div>
+          )
         ) : (
           pendingQueue.map((item, index) => {
             const isSelected = item.id === currentId;
             const isDragging = draggedIndex === index;
             const isDragOver = dragOverIndex === index;
             const isDismissing = item.id === dismissingId;
+
+            if (isSidebarCollapsed) {
+              const getPriorityColor = (priority) => {
+                switch (priority) {
+                  case 'urgent':
+                    return 'border-red-200 bg-red-50 hover:bg-red-100 text-red-700 hover:border-red-300';
+                  case 'important':
+                    return 'border-amber-200 bg-amber-50 hover:bg-amber-100 text-[#C8952A] hover:border-amber-300';
+                  default:
+                    return 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:border-slate-300';
+                }
+              };
+
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => selectCorrespondence(item.id)}
+                  className={`group relative w-10 h-10 rounded-full border flex items-center justify-center cursor-pointer transition-all hover:scale-105 ${
+                    isSelected
+                      ? 'bg-gradient-to-br from-[#1B4B8A] to-[#123a6b] border-[#1B4B8A] text-white shadow-md ring-4 ring-[#1B4B8A]/20'
+                      : getPriorityColor(item.priority)
+                  }`}
+                >
+                  <span className="text-xs font-bold font-mono">
+                    {index + 1}
+                  </span>
+
+                  {/* Tooltip on Hover */}
+                  <div className="opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 absolute right-full mr-3 top-1/2 -translate-y-1/2 z-50 bg-slate-900/95 text-white text-[11px] p-3 rounded-2xl shadow-xl w-60 border border-slate-700 font-cairo leading-relaxed">
+                    <div className="flex items-center justify-between mb-1.5 gap-2">
+                      <span className="font-mono font-bold text-[#C8952A]">
+                        {item.refNumber}
+                      </span>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                        item.priority === 'urgent' 
+                          ? 'bg-red-900/50 text-red-200 border border-red-700/50' 
+                          : item.priority === 'important'
+                          ? 'bg-amber-950/50 text-amber-200 border border-amber-800/50'
+                          : 'bg-slate-800 text-slate-300 border border-slate-700'
+                      }`}>
+                        {item.priority === 'urgent' ? 'عاجل جداً' : item.priority === 'important' ? 'مهم' : 'عادي'}
+                      </span>
+                    </div>
+                    <div className="font-bold line-clamp-2 mb-2 text-white">
+                      {item.subject}
+                    </div>
+                    <div className="text-[10px] text-slate-400 flex items-center justify-between">
+                      <span className="truncate max-w-[120px]">{item.sender}</span>
+                      <span>{item.dateHijri}</span>
+                    </div>
+                  </div>
+
+                  {/* Priority Dot Indicator for non-selected urgent item */}
+                  {!isSelected && item.priority === 'urgent' && (
+                    <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-600 border border-white animate-pulse" />
+                  )}
+                </div>
+              );
+            }
 
             return (
               <div
@@ -235,15 +335,32 @@ export const SidebarQueue = () => {
       </div>
 
       {/* Sidebar Footer: View Archive Button */}
-      <div className="p-3 border-t border-[#E2E6EC] bg-white">
-        <button
-          onClick={() => setActiveView('archive')}
-          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 text-xs font-bold rounded-xl bg-[#F7F8FA] hover:bg-[#1B4B8A] text-[#1B4B8A] hover:text-white border border-[#E2E6EC] transition-all group shadow-xs"
-        >
-          <Archive className="w-4 h-4 text-[#C8952A] group-hover:text-white transition-colors" />
-          <span>عرض الأرشيف الإلكتروني (المعاملات المكتملة)</span>
-          <ArrowUpRight className="w-3.5 h-3.5 opacity-70" />
-        </button>
+      <div className={`p-3 border-t border-[#E2E6EC] bg-white ${
+        isSidebarCollapsed ? 'hidden lg:flex lg:justify-center' : ''
+      }`}>
+        {isSidebarCollapsed ? (
+          <button
+            onClick={() => setActiveView('archive')}
+            className="p-2.5 rounded-xl bg-[#F7F8FA] hover:bg-[#1B4B8A] text-[#1B4B8A] hover:text-white border border-[#E2E6EC] transition-all group shadow-xs relative"
+            title="عرض الأرشيف الإلكتروني (المعاملات المكتملة)"
+          >
+            <Archive className="w-5 h-5 text-[#C8952A] group-hover:text-white transition-colors" />
+            
+            {/* Archive Tooltip */}
+            <div className="opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 absolute right-full mr-3 top-1/2 -translate-y-1/2 z-50 bg-slate-900/95 text-white text-[11px] py-1.5 px-3 rounded-lg shadow-xl whitespace-nowrap border border-slate-700 font-cairo">
+              عرض الأرشيف الإلكتروني
+            </div>
+          </button>
+        ) : (
+          <button
+            onClick={() => setActiveView('archive')}
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 text-xs font-bold rounded-xl bg-[#F7F8FA] hover:bg-[#1B4B8A] text-[#1B4B8A] hover:text-white border border-[#E2E6EC] transition-all group shadow-xs"
+          >
+            <Archive className="w-4 h-4 text-[#C8952A] group-hover:text-white transition-colors" />
+            <span>عرض الأرشيف الإلكتروني (المعاملات المكتملة)</span>
+            <ArrowUpRight className="w-3.5 h-3.5 opacity-70" />
+          </button>
+        )}
       </div>
     </aside>
   );

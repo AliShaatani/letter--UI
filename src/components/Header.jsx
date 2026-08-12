@@ -14,12 +14,14 @@ import {
   Sparkles,
   Building2,
   Calendar,
-  AlertTriangle
+  AlertTriangle,
+  Upload
 } from 'lucide-react';
 
 export const Header = () => {
   const {
     pendingQueue,
+    archiveQueue,
     filters,
     setFilter,
     resetFilters,
@@ -28,12 +30,13 @@ export const Header = () => {
     activeView,
     setActiveView,
     resetToMockData,
-    showToast
+    showToast,
+    uploadPdf
   } = useCorrespondenceStore();
 
-  const totalCount = 6; // Total initial queue size
   const pendingCount = pendingQueue.length;
-  const completedCount = totalCount - pendingCount;
+  const completedCount = archiveQueue.length;
+  const totalCount = pendingCount + completedCount || 1;
   const progressPercent = Math.min(100, Math.round((completedCount / totalCount) * 100));
 
   // Count active filters
@@ -89,6 +92,38 @@ export const Header = () => {
 
           {/* Left Section: Controls & Actions */}
           <div className="flex items-center gap-2 shrink-0 me-auto sm:me-0">
+            {/* PDF Upload Button */}
+            <input
+              type="file"
+              accept=".pdf"
+              className="hidden"
+              id="header-upload-input"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (file.type !== 'application/pdf') {
+                  showToast('يرجى اختيار ملف PDF صالح ⚠️', 'error');
+                  return;
+                }
+                try {
+                  showToast('جاري تحميل وتحليل ملف PDF... ⏳', 'info');
+                  await uploadPdf(file);
+                  showToast('تم رفع الملف بنجاح 🎉', 'success');
+                } catch (err) {
+                  console.error(err);
+                  showToast('حدث خطأ أثناء تحميل الملف ⚠️', 'error');
+                }
+              }}
+            />
+            <label
+              htmlFor="header-upload-input"
+              className="flex items-center gap-2 px-3 py-2 text-xs font-bold rounded-xl border border-[#E2E6EC] bg-white text-[#1A1F2B] hover:bg-gray-50 shadow-xs cursor-pointer transition-all"
+              title="رفع ملف PDF جديد"
+            >
+              <Upload className="w-4 h-4 text-[#C8952A]" />
+              <span className="hidden sm:inline">رفع ملف PDF</span>
+            </label>
+
             {/* Filter Toggle Button */}
             <button
               onClick={toggleFilterPanel}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useCorrespondenceStore } from '../store/useCorrespondenceStore';
 import { AnnotationCanvas } from './AnnotationCanvas';
+
 import {
   PenTool,
   Highlighter,
@@ -47,6 +48,7 @@ export const DocumentRenderer = ({ item, readOnly = false }) => {
   } = useCorrespondenceStore();
 
   const [shapeMenuOpen, setShapeMenuOpen] = useState(false);
+
 
   if (!item) return null;
 
@@ -171,138 +173,148 @@ export const DocumentRenderer = ({ item, readOnly = false }) => {
         ) : (
           <div
             className={`relative bg-white rounded-lg shadow-2xl transition-all border border-gray-300 ${docAnimationClass}`}
-            style={{
-              width: docWidth * scale,
-              height: docHeight * scale
-            }}
+            style={{ width: docWidth * scale, height: docHeight * scale }}
           >
-            {/* Render Crisp Arabic Document Sheet Content */}
-            <div
-              className="absolute inset-0 p-10 sm:p-12 flex flex-col justify-between select-none pointer-events-none overflow-hidden bg-white"
-              style={{
-                transform: `scale(${scale})`,
-                transformOrigin: 'top right',
-                width: docWidth,
-                height: docHeight
-              }}
-            >
-              {/* Official Header */}
-              <div>
-                <div className="flex items-center justify-between border-b-2 border-[#1B4B8A] pb-4 mb-6">
-                  <div>
-                    <h3 className="font-bold text-base font-cairo text-[#1B4B8A]">
-                      {item.documentContent?.headerTitle || 'جمهورية مصر العربية'}
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {item.documentContent?.docTypeLabel || 'مراسلة رسمية توجيهية'}
-                    </p>
+            {/* Render PDF page as rasterized image (stretched to A4) OR mock template */}
+            {item.pageImages ? (
+              <img
+                src={item.pageImages[activePage - 1] || item.pageImages[0]}
+                alt={`صفحة ${activePage}`}
+                className="absolute inset-0 select-none pointer-events-none"
+                style={{
+                  width: docWidth * scale,
+                  height: docHeight * scale,
+                  objectFit: 'fill'
+                }}
+              />
+            ) : (
+              <div
+                className="absolute inset-0 p-10 sm:p-12 flex flex-col justify-between select-none pointer-events-none overflow-hidden bg-white"
+                style={{
+                  transform: `scale(${scale})`,
+                  transformOrigin: 'top right',
+                  width: docWidth,
+                  height: docHeight
+                }}
+              >
+                {/* Official Header */}
+                <div>
+                  <div className="flex items-center justify-between border-b-2 border-[#1B4B8A] pb-4 mb-6">
+                    <div>
+                      <h3 className="font-bold text-base font-cairo text-[#1B4B8A]">
+                        {item.documentContent?.headerTitle || 'جمهورية مصر العربية'}
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {item.documentContent?.docTypeLabel || 'مراسلة رسمية توجيهية'}
+                      </p>
+                    </div>
+
+                    <div className="text-center">
+                      <div className="w-12 h-12 rounded-full border-2 border-[#C8952A] flex items-center justify-center mx-auto mb-1 bg-amber-50/50">
+                        <Building className="w-6 h-6 text-[#C8952A]" />
+                      </div>
+                      <span className="text-[10px] font-bold text-gray-400">ختم المعتمد</span>
+                    </div>
+
+                    <div className="text-left font-mono text-xs text-gray-600 space-y-1">
+                      <div>
+                        <span className="text-gray-400">الرقم:</span>{' '}
+                        <span className="font-bold text-[#1B4B8A]">{item.refNumber}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">التاريخ:</span>{' '}
+                        <span>{item.dateGregorian}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">الموافق:</span>{' '}
+                        <span>{item.dateHijri}</span>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="text-center">
-                    <div className="w-12 h-12 rounded-full border-2 border-[#C8952A] flex items-center justify-center mx-auto mb-1 bg-amber-50/50">
-                      <Building className="w-6 h-6 text-[#C8952A]" />
-                    </div>
-                    <span className="text-[10px] font-bold text-gray-400">ختم المعتمد</span>
+                  {/* Page Title */}
+                  {currentPageData?.contentTitle && (
+                    <h4 className="text-lg font-bold font-cairo text-center text-[#1B4B8A] mb-6 bg-slate-50 py-2 px-4 rounded-xl border border-slate-200">
+                      {currentPageData.contentTitle}
+                    </h4>
+                  )}
+
+                  {/* Main Paragraphs */}
+                  <div className="space-y-4 text-sm text-[#1A1F2B] leading-relaxed font-ibm">
+                    {currentPageData?.bodyParagraphs?.map((para, idx) => (
+                      <p key={idx} className="indent-4 text-justify">
+                        {para}
+                      </p>
+                    ))}
                   </div>
 
-                  <div className="text-left font-mono text-xs text-gray-600 space-y-1">
-                    <div>
-                      <span className="text-gray-400">الرقم:</span>{' '}
-                      <span className="font-bold text-[#1B4B8A]">{item.refNumber}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-400">التاريخ:</span>{' '}
-                      <span>{item.dateGregorian}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-400">الموافق:</span>{' '}
-                      <span>{item.dateHijri}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Page Title */}
-                {currentPageData?.contentTitle && (
-                  <h4 className="text-lg font-bold font-cairo text-center text-[#1B4B8A] mb-6 bg-slate-50 py-2 px-4 rounded-xl border border-slate-200">
-                    {currentPageData.contentTitle}
-                  </h4>
-                )}
-
-                {/* Main Paragraphs */}
-                <div className="space-y-4 text-sm text-[#1A1F2B] leading-relaxed font-ibm">
-                  {currentPageData?.bodyParagraphs?.map((para, idx) => (
-                    <p key={idx} className="indent-4 text-justify">
-                      {para}
-                    </p>
-                  ))}
-                </div>
-
-                {/* Render Table Data if present on this page */}
-                {currentPageData?.tableData && (
-                  <div className="my-6 border border-gray-300 rounded-xl overflow-hidden shadow-xs">
-                    <table className="w-full text-xs text-right">
-                      <thead className="bg-[#1B4B8A] text-white font-cairo">
-                        <tr>
-                          {currentPageData.tableData.headers.map((h, i) => (
-                            <th key={i} className="p-2.5 border-b font-bold">
-                              {h}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200 font-ibm">
-                        {currentPageData.tableData.rows.map((row, rIdx) => (
-                          <tr key={rIdx} className="hover:bg-gray-50">
-                            {row.map((cell, cIdx) => (
-                              <td key={cIdx} className="p-2.5 font-medium">
-                                {cell}
-                              </td>
+                  {/* Render Table Data if present on this page */}
+                  {currentPageData?.tableData && (
+                    <div className="my-6 border border-gray-300 rounded-xl overflow-hidden shadow-xs">
+                      <table className="w-full text-xs text-right">
+                        <thead className="bg-[#1B4B8A] text-white font-cairo">
+                          <tr>
+                            {currentPageData.tableData.headers.map((h, i) => (
+                              <th key={i} className="p-2.5 border-b font-bold">
+                                {h}
+                              </th>
                             ))}
                           </tr>
-                        ))}
-                        {currentPageData.tableData.total && (
-                          <tr className="bg-amber-50 font-bold border-t-2 border-[#C8952A]">
-                            <td colSpan={2} className="p-2.5 text-left">
-                              الإجمالي الكلي:
-                            </td>
-                            <td colSpan={2} className="p-2.5 text-[#1B4B8A]">
-                              {currentPageData.tableData.total}
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-
-              {/* Document Signature Footer Block */}
-              <div className="pt-6 border-t border-gray-200 flex items-center justify-between text-xs">
-                <div>
-                  <span className="text-gray-400">المرسل:</span>{' '}
-                  <span className="font-bold text-[#1A1F2B]">{item.sender}</span>
-                  <div className="text-gray-500 font-medium">
-                    {item.senderRepresentative}
-                  </div>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 font-ibm">
+                          {currentPageData.tableData.rows.map((row, rIdx) => (
+                            <tr key={rIdx} className="hover:bg-gray-50">
+                              {row.map((cell, cIdx) => (
+                                <td key={cIdx} className="p-2.5 font-medium">
+                                  {cell}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                          {currentPageData.tableData.total && (
+                            <tr className="bg-amber-50 font-bold border-t-2 border-[#C8952A]">
+                              <td colSpan={2} className="p-2.5 text-left">
+                                الإجمالي الكلي:
+                              </td>
+                              <td colSpan={2} className="p-2.5 text-[#1B4B8A]">
+                                {currentPageData.tableData.total}
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
 
-                {currentPageData?.signatureBlock && (
-                  <div className="text-center bg-slate-50 p-3 rounded-xl border border-slate-200 min-w-[200px]">
-                    <div className="font-bold text-[#1B4B8A]">
-                      {currentPageData.signatureBlock.title}
-                    </div>
-                    <div className="text-gray-600 font-medium text-xs mt-1">
-                      {currentPageData.signatureBlock.name}
-                    </div>
-                    <div className="text-[10px] text-gray-400 mt-1">
-                      توقيع معتمد إلكترونياً
+                {/* Document Signature Footer Block */}
+                <div className="pt-6 border-t border-gray-200 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="text-gray-400">المرسل:</span>{' '}
+                    <span className="font-bold text-[#1A1F2B]">{item.sender}</span>
+                    <div className="text-gray-500 font-medium">
+                      {item.senderRepresentative}
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
 
-            {/* Konva Interactive Annotation Layer */}
+                  {currentPageData?.signatureBlock && (
+                    <div className="text-center bg-slate-50 p-3 rounded-xl border border-slate-200 min-w-[200px]">
+                      <div className="font-bold text-[#1B4B8A]">
+                        {currentPageData.signatureBlock.title}
+                      </div>
+                      <div className="text-gray-600 font-medium text-xs mt-1">
+                        {currentPageData.signatureBlock.name}
+                      </div>
+                      <div className="text-[10px] text-gray-400 mt-1">
+                        توقيع معتمد إلكترونياً
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Konva Interactive Annotation Layer — always A4 */}
             <div className="absolute inset-0 z-10">
               <AnnotationCanvas
                 docId={item.id}

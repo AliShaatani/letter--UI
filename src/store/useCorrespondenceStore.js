@@ -1,5 +1,9 @@
 import { create } from 'zustand';
 import { correspondenceService } from '../services/correspondenceService';
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 export const useCorrespondenceStore = create((set, get) => ({
   // Queue & Selection
@@ -9,6 +13,7 @@ export const useCorrespondenceStore = create((set, get) => ({
   activeView: 'main', // 'main' | 'archive'
   isLoading: false,
   isDocumentLoading: false,
+  isSidebarCollapsed: false,
 
   // Animations & Transitions
   dismissingId: null, // ID of card being dismissed
@@ -357,5 +362,87 @@ export const useCorrespondenceStore = create((set, get) => ({
     setTimeout(() => {
       set((state) => (state.toast?.id === toast.id ? { toast: null } : state));
     }, 4000);
+  },
+
+  toggleSidebar: () => set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
+
+  uploadPdf: async (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const arrayBuffer = e.target.result;
+          const typedarray = new Uint8Array(arrayBuffer);
+
+          // Load PDF with CMap support for Arabic text
+          const pdf = await pdfjsLib.getDocument({
+            data: typedarray,
+            cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/cmaps/',
+            cMapPacked: true,
+            standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/standard_fonts/'
+          }).promise;
+
+          const pageCount = pdf.numPages;
+          const RENDER_SCALE = 2.0; // High-res for crisp Arabic text
+          const pageImages = [];
+          let pageDimensions = { width: 595, height: 842 }; // A4 fallback
+
+          // Render every page to an offscreen canvas → PNG base64
+          for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
+            const page = await pdf.getPage(pageNum);
+            const viewport = page.getViewport({ scale: RENDER_SCALE });
+
+            const offscreen = document.createElement('canvas');
+            offscreen.width = viewport.width;
+            offscreen.height = viewport.height;
+            const ctx = offscreen.getContext('2d');
+
+            await page.render({ canvasContext: ctx, viewport }).promise;
+
+            pageImages.push(offscreen.toDataURL('image/png'));
+
+            // Store logical (1x) dimensions from first page
+            if (pageNum === 1) {
+              const vp1x = page.getViewport({ scale: 1.0 });
+              pageDimensions = { width: vp1x.width, height: vp1x.height };
+            }
+          }
+
+          const rand = Math.floor(1000 + Math.random() * 9000);
+          const newDoc = {
+            id: `pdf-${Date.now()}`,
+            refNumber: `PDF-${new Date().getFullYear()}-${rand}`,
+            subject: file.name.replace(/\.[^/.]+$/, ''),
+            sender: 'مستند مرفوع إلكترونياً',
+            senderRepresentative: 'المستخدم الحالي',
+            dateGregorian: new Date().toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric' }),
+            dateHijri: '1448 هـ',
+            type: 'external',
+            priority: 'normal',
+            status: 'pending',
+            targetDepartment: 'مكتب المدير العام',
+            summary: `ملف PDF تم رفعه باسم: ${file.name}`,
+            pageCount,
+            pageImages,       // array of base64 PNGs, one per page
+            pageDimensions,   // logical page size at 1x (width, height in px)
+            annotations: {},
+            routeHistory: [],
+            completedAt: null
+          };
+
+          const updatedQueue = await correspondenceService.addCorrespondence(newDoc);
+          set(() => ({
+            pendingQueue: updatedQueue,
+            currentId: newDoc.id,
+            activePage: 1
+          }));
+          resolve(newDoc);
+        } catch (err) {
+          reject(err);
+        }
+      };
+      reader.onerror = (err) => reject(err);
+      reader.readAsArrayBuffer(file);
+    });
   }
 }));
