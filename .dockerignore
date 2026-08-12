@@ -2,7 +2,9 @@ node_modules
 dist
 .git
 .gitignore
-.env*.local
+# Exclude Windows lock file so Docker regenerates for linux/x64
+package-lock.json
+.env
 *.log
 .gemini
 start_app.bat
