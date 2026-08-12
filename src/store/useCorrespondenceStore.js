@@ -1,9 +1,10 @@
 import { create } from 'zustand';
 import { correspondenceService } from '../services/correspondenceService';
 import * as pdfjsLib from 'pdfjs-dist';
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+// Use the static worker copy in public/ — served as .js with correct MIME type.
+// Avoids the nginx .mjs MIME type issue (application/octet-stream rejection).
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.js';
 
 export const useCorrespondenceStore = create((set, get) => ({
   // Queue & Selection

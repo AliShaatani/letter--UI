@@ -29,3 +29,4 @@ dist-ssr
 # pdfjs bundled assets — copied from node_modules at build/deploy time
 public/cmaps/
 public/standard_fonts/
+public/pdf.worker.js
