@@ -400,7 +400,7 @@ export const useCorrespondenceStore = create((set, get) => ({
 
             await page.render({ canvasContext: ctx, viewport }).promise;
 
-            pageImages.push(offscreen.toDataURL('image/png'));
+            pageImages.push(offscreen.toDataURL('image/jpeg', 0.8));
 
             // Store logical (1x) dimensions from first page
             if (pageNum === 1) {

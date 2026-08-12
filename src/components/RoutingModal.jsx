@@ -1,14 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useCorrespondenceStore } from '../store/useCorrespondenceStore';
-import { DEPARTMENTS, PRESET_NOTES } from '../services/correspondenceService';
+import { DEPARTMENTS } from '../services/correspondenceService';
 import {
   X,
   Building2,
-  FileText,
+  MapPin,
   CheckCircle2,
   Send,
   Check
 } from 'lucide-react';
+
+const REGIONAL_BRANCHES = [
+  'طرابلس',
+  'مصراتة',
+  'الخمس',
+  'نالوت',
+  'الزاوية الغرب',
+  'سوق الجمعة',
+  'أبو سليم'
+];
 
 export const RoutingModal = () => {
   const {
@@ -20,7 +30,7 @@ export const RoutingModal = () => {
   } = useCorrespondenceStore();
 
   const [selectedDepts, setSelectedDepts] = useState([]);
-  const [note, setNote] = useState('');
+  const [selectedBranches, setSelectedBranches] = useState([]);
   const [deptSearch, setDeptSearch] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -30,7 +40,7 @@ export const RoutingModal = () => {
   useEffect(() => {
     if (isRoutingModalOpen && currentItem?.targetDepartment) {
       setSelectedDepts([currentItem.targetDepartment]);
-      setNote('');
+      setSelectedBranches([]);
       setDeptSearch('');
       setIsSubmitting(false);
     }
@@ -46,24 +56,32 @@ export const RoutingModal = () => {
     }
   };
 
-  const handlePresetNote = (presetText) => {
-    setNote((prev) => (prev ? `${prev}\n${presetText}` : presetText));
+  const handleBranchToggle = (branchName) => {
+    if (selectedBranches.includes(branchName)) {
+      setSelectedBranches(selectedBranches.filter((b) => b !== branchName));
+    } else {
+      setSelectedBranches([...selectedBranches, branchName]);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (selectedDepts.length === 0) {
-      alert('يرجى اختيار إدارة واحدة على الأقل للإحالة إليها');
+    if (selectedDepts.length === 0 && selectedBranches.length === 0) {
+      alert('يرجى اختيار جهة أو مكتب واحد على الأقل للإحالة إليها');
       return;
     }
 
     setIsSubmitting(true);
 
+    const branchReferrals = selectedBranches.map((b) => `مكتب ${b}`);
+    const combinedReferTo = [...selectedDepts, ...branchReferrals];
+    const formattedNote = selectedBranches.length > 0 ? `المكاتب بالمناطق: ${selectedBranches.join(' - ')}` : '';
+
     try {
       await finalizeAndRouteCurrent({
         signature: null,
-        referTo: selectedDepts,
-        note
+        referTo: combinedReferTo,
+        note: formattedNote
       });
     } catch (error) {
       console.error('Error submitting routing:', error);
@@ -152,35 +170,41 @@ export const RoutingModal = () => {
             </div>
           </div>
 
-          {/* Section 2: Optional Notes & Presets */}
+          {/* Section 2: Regional Offices Selection (المكاتب بالمناطق) */}
           <div>
-            <label className="block text-sm font-bold font-cairo text-[#1B4B8A] mb-2 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-[#C8952A]" />
-              <span>ملاحظة أو توجيه إداري إضافي (اختياري)</span>
-            </label>
-
-            {/* Preset Tags */}
-            <div className="flex flex-wrap gap-1.5 mb-2.5">
-              {PRESET_NOTES.map((preset, idx) => (
-                <button
-                  type="button"
-                  key={idx}
-                  onClick={() => handlePresetNote(preset)}
-                  className="text-[11px] bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-900 px-2.5 py-1 rounded-lg transition-colors border border-slate-200 line-clamp-1"
-                  title={preset}
-                >
-                  + {preset.substring(0, 32)}...
-                </button>
-              ))}
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-bold font-cairo text-[#1B4B8A] flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-[#C8952A]" />
+                <span>المكاتب بالمناطق</span>
+              </label>
+              <span className="text-xs text-gray-500 font-semibold">
+                تم تحديد {selectedBranches.length} مكاتب
+              </span>
             </div>
 
-            <textarea
-              rows={3}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="اكتب التوجيه أو الملاحظات التفصيلية للإدارة المُحالة إليها..."
-              className="w-full px-3 py-2 text-xs rounded-xl border border-gray-300 focus:border-[#1B4B8A] focus:ring-1 focus:ring-[#1B4B8A] outline-none leading-relaxed"
-            />
+            {/* Regional Offices Badges Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-1">
+              {REGIONAL_BRANCHES.map((branch, idx) => {
+                const isChecked = selectedBranches.includes(branch);
+                return (
+                  <button
+                    type="button"
+                    key={idx}
+                    onClick={() => handleBranchToggle(branch)}
+                    className={`flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl border transition-all ${
+                      isChecked
+                        ? 'bg-[#C8952A] text-white border-[#C8952A] shadow-xs'
+                        : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-amber-50/40'
+                    }`}
+                  >
+                    <span className="truncate">{branch}</span>
+                    {isChecked ? (
+                      <Check className="w-4 h-4 shrink-0 text-white" />
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Modal Footer Actions */}
@@ -195,7 +219,7 @@ export const RoutingModal = () => {
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || selectedDepts.length === 0}
+              disabled={isSubmitting || (selectedDepts.length === 0 && selectedBranches.length === 0)}
               className="flex items-center gap-2 px-6 py-2.5 text-xs font-bold font-cairo text-white bg-gradient-to-r from-[#1B4B8A] to-[#123a6b] hover:from-[#123a6b] hover:to-[#0f2e55] rounded-xl shadow-lg disabled:opacity-50 transition-all border border-[#C8952A]/40"
             >
               {isSubmitting ? (
