@@ -14,6 +14,11 @@ RUN npm install --prefer-offline
 COPY . .
 RUN npm run build
 
+# Bundle pdfjs CMap + Standard Font data alongside the app
+# so PDF rendering works without any CDN dependency
+RUN cp -r node_modules/pdfjs-dist/cmaps /app/dist/cmaps && \
+    cp -r node_modules/pdfjs-dist/standard_fonts /app/dist/standard_fonts
+
 # =========================================================
 # Stage 2: Production Nginx Server
 # =========================================================

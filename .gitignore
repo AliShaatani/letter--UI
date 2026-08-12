@@ -25,3 +25,7 @@ dist-ssr
 
 # Environment — never commit real domains/secrets
 .env
+
+# pdfjs bundled assets — copied from node_modules at build/deploy time
+public/cmaps/
+public/standard_fonts/

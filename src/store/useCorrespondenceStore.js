@@ -374,12 +374,12 @@ export const useCorrespondenceStore = create((set, get) => ({
           const arrayBuffer = e.target.result;
           const typedarray = new Uint8Array(arrayBuffer);
 
-          // Load PDF with CMap support for Arabic text
+          // Load PDF with locally-bundled CMap data (no CDN dependency)
           const pdf = await pdfjsLib.getDocument({
             data: typedarray,
-            cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/cmaps/',
+            cMapUrl: '/cmaps/',
             cMapPacked: true,
-            standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/standard_fonts/'
+            standardFontDataUrl: '/standard_fonts/'
           }).promise;
 
           const pageCount = pdf.numPages;
