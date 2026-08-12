@@ -52,15 +52,19 @@ export const Header = () => {
         <div className="flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
           {/* Right Section: Logo & System Title */}
           <div className="flex items-center gap-3">
-            {/* Logo Emblem Image */}
-            <div className="relative w-10 h-10 shrink-0">
-              <img src="/logo.png" alt="تطبيق التهميش" className="w-full h-full object-contain filter drop-shadow-sm" />
+            {/* Official Awqaf Logo */}
+            <div className="relative h-12 w-auto shrink-0">
+              <img
+                src="https://awqaf.gov.ly/jicusoq/2024/11/Group-3.svg"
+                alt="الهيئة العامة للأوقاف"
+                className="h-full w-auto object-contain filter drop-shadow-sm"
+              />
             </div>
 
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-lg sm:text-xl font-bold font-cairo text-[#1B4B8A] tracking-tight">
-                  نظام تهميش وتوجيه المراسلات
+                  نظام مراسلات رئيس الهيئة
                 </h1>
                 <span className="bg-[#C8952A]/10 text-[#C8952A] text-xs font-semibold px-2 py-0.5 rounded-full border border-[#C8952A]/20">
                   إصدار 2.5
