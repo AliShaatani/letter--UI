@@ -8,7 +8,7 @@ services:
     container_name: app-moraslat
     restart: unless-stopped
     ports:
-      - "${PORT:-5180}:8080"
+      - "5180:8080"
     environment:
       - NODE_ENV=production
     healthcheck:
@@ -17,5 +17,3 @@ services:
       timeout: 5s
       retries: 3
       start_period: 5s
-    labels:
-      - "dokploy.enable=true"
