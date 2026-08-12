@@ -8,34 +8,8 @@ services:
     container_name: app-moraslat
     restart: unless-stopped
 
-    # -------------------------------------------------------
-    # No direct port binding — Traefik handles external access
-    # -------------------------------------------------------
-    labels:
-      # Tell Traefik to manage this container
-      - "traefik.enable=true"
-
-      # --- HTTP router: redirect all HTTP → HTTPS ---
-      - "traefik.http.routers.app-moraslat-http.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.app-moraslat-http.entrypoints=web"
-      - "traefik.http.routers.app-moraslat-http.middlewares=redirect-to-https"
-
-      # --- HTTPS router ---
-      - "traefik.http.routers.app-moraslat.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.app-moraslat.entrypoints=websecure"
-      - "traefik.http.routers.app-moraslat.tls=true"
-      - "traefik.http.routers.app-moraslat.tls.certresolver=letsencrypt"
-
-      # --- Service: point Traefik to Nginx inside the container ---
-      - "traefik.http.services.app-moraslat.loadbalancer.server.port=8080"
-
-      # --- Middleware: HTTP → HTTPS permanent redirect ---
-      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
-      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
-
     environment:
       - NODE_ENV=production
-      - DOMAIN=${DOMAIN}
 
     networks:
       - dokploy-network
