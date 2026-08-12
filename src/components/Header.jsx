@@ -55,7 +55,7 @@ export const Header = () => {
             {/* Official Awqaf Logo */}
             <div className="relative h-12 w-auto shrink-0">
               <img
-                src="https://awqaf.gov.ly/jicusoq/2024/11/Group-3.svg"
+                src="https://awqaf.gov.ly/jicusoq/2024/11/Group-2.svg"
                 alt="الهيئة العامة للأوقاف"
                 className="h-full w-auto object-contain filter drop-shadow-sm"
               />
@@ -64,7 +64,7 @@ export const Header = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-lg sm:text-xl font-bold font-cairo text-[#1B4B8A] tracking-tight">
-                  نظام مراسلات رئيس الهيئة
+                  مراسلات رئيس الهيئة
                 </h1>
                 <span className="bg-[#C8952A]/10 text-[#C8952A] text-xs font-semibold px-2 py-0.5 rounded-full border border-[#C8952A]/20">
                   إصدار 2.5
