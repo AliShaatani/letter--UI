@@ -8,11 +8,11 @@ services:
     container_name: app-moraslat
     restart: unless-stopped
     ports:
-      - "${PORT:-8080}:80"
+      - "${PORT:-5180}:51"
     environment:
       - NODE_ENV=production
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:51/" ]
       interval: 30s
       timeout: 5s
       retries: 3
