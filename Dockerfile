@@ -1,13 +1,14 @@
 # =========================================================
 # Stage 1: Build React Application
 # =========================================================
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies first for efficient layer caching
+# Install dependencies — npm install (not ci) lets npm resolve
+# the correct platform-native Rolldown binding for linux/x64
 COPY package*.json ./
-RUN npm ci
+RUN npm install --prefer-offline
 
 # Copy source code and build production bundle
 COPY . .
