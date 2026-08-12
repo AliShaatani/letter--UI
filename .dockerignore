@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+.gitignore
+.env*.local
+*.log
+.gemini
+start_app.bat
+create_shortcut.ps1

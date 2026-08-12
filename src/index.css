@@ -1,0 +1,154 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --color-primary: #1B4B8A;
+    --color-primary-dark: #123a6b;
+    --color-gold: #C8952A;
+    --color-gold-light: #E0B863;
+    --color-bg: #F7F8FA;
+    --color-surface: #FFFFFF;
+    --color-border: #E2E6EC;
+    --color-text: #1A1F2B;
+    --color-text-muted: #6B7280;
+    --color-success: #1E9E5A;
+    --color-warning: #D97706;
+    --color-danger: #DC2626;
+  }
+
+  body {
+    font-family: 'IBM Plex Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6, .font-cairo {
+    font-family: 'Cairo', sans-serif;
+  }
+
+  .font-ibm {
+    font-family: 'IBM Plex Arabic', sans-serif;
+  }
+}
+
+/* Islamic Subtle Overlay Pattern */
+.bg-islamic-pattern {
+  background-image: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%231b4b8a' fill-opacity='0.035' fill-rule='evenodd'%3E%3Cpath d='M40 0L80 40L40 80L0 40Z'/%3E%3Cpath d='M40 12L68 40L40 68L12 40Z'/%3E%3Cpath d='M40 24L56 40L40 56L24 40Z'/%3E%3Ccircle cx='40' cy='40' r='5'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Glassmorphism effects */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.glass-dark {
+  background: rgba(27, 75, 138, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Custom Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(200, 149, 42, 0.4); }
+  50% { box-shadow: 0 0 0 10px rgba(200, 149, 42, 0); }
+}
+
+/* Document Slide Exit / Entry Animations */
+@keyframes docSlideOutLeft {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(1) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-140px) scale(0.9) rotate(-3deg);
+  }
+}
+
+@keyframes docSlideInRight {
+  0% {
+    opacity: 0;
+    transform: translateX(140px) scale(0.92) rotate(3deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes cardDismissRight {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+    max-height: 180px;
+    margin-bottom: 0.625rem;
+  }
+  40% {
+    opacity: 0.8;
+    transform: translateX(-30px);
+    background-color: #ecfdf5;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-120px);
+    max-height: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-width: 0;
+    overflow: hidden;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-in {
+  animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-doc-slide-out {
+  animation: docSlideOutLeft 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-doc-slide-in {
+  animation: docSlideInRight 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-card-dismiss {
+  animation: cardDismissRight 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.pulse-glow {
+  animation: pulseGlow 2.5s infinite;
+}
